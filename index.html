@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Huawei Watch Mockup Generator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f8f9fa;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      padding: 24px;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .device-select {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    input[type="file"] {
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      width: 100%;
+    }
+
+    button {
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    button:not(:disabled):hover {
+      background: #005ecb;
+    }
+
+    canvas {
+      margin-top: 12px;
+      max-width: 100%;
+      border-radius: 12px;
+      border: 1px solid #e5e5e5;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Huawei Watch Mockup Generator</h1>
+  <div class="card">
+    <div class="device-select">
+      <label><input type="radio" name="device" value="smart" checked> Smart</label>
+      <label><input type="radio" name="device" value="lite"> Lite</label>
+    </div>
+    <input type="file" id="upload" accept="image/png,image/jpeg" />
+    <button id="download" disabled>Download</button>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script>
+    const SMART_FRAME = "watch.png";
+    const LITE_FRAME = "lite-watch.png";
+    const IMAGE_LEFT_PAD = 4;
+    const upload = document.getElementById("upload");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const downloadBtn = document.getElementById("download");
+    const deviceRadios = document.querySelectorAll('input[name="device"]');
+    let state = { file: null, device: "smart" };
+
+    const setState = (partial) => {
+      state = { ...state, ...partial };
+      render();
+    }
+
+    async function render() {
+      const { file, device } = state;
+      if (!file) {
+        clearCanvas();
+        downloadBtn.disabled = true;
+        return;
+      }
+      const frameSrc = device === "smart" ? SMART_FRAME : LITE_FRAME;
+      const [frame, photo] = await Promise.all([
+        loadImage(frameSrc),
+        loadImage(URL.createObjectURL(file))
+      ]);
+
+      const fw = frame.width, fh = frame.height;
+      canvas.width = fw; canvas.height = fh;
+
+      const circleSize = Math.min(fw - 160, fh - 160);
+      const radius = circleSize / 2;
+      const left = Math.floor((fw - circleSize) / 2) - IMAGE_LEFT_PAD;
+      const top = Math.floor((fh - circleSize) / 2);
+
+      ctx.clearRect(0, 0, fw, fh);
+      ctx.drawImage(frame, 0, 0, fw, fh);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(left + radius, top + radius, radius, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(photo, left, top, circleSize, circleSize);
+      ctx.restore();
+      downloadBtn.disabled = false;
+    }
+
+    function clearCanvas() {
+      canvas.width = 400; canvas.height = 600;
+      ctx.fillStyle = "#f4f4f4";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#777"; ctx.font = "16px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText("Upload an image", canvas.width / 2, canvas.height / 2);
+    }
+
+    function loadImage(src) {
+      return new Promise((res, rej) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => res(img);
+        img.onerror = rej;
+        img.src = src;
+      });
+    }
+
+    upload.addEventListener("change", () => {
+      const file = upload.files[0];
+      if (!file) return; setState({ file });
+    });
+    deviceRadios.forEach(r => r.addEventListener("change", () => setState({ device: r.value })));
+    downloadBtn.addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.download = "framed.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+    clearCanvas();
+  </script>
+</body>
+
+</html>
